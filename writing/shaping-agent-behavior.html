@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shaping Agent Behavior Through Trajectory Optimization</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fbf9f4;
+    --text: #1a1a1a;
+    --text-muted: #5a5a5a;
+    --accent: #8a2c2c;
+    --rule: #d8d3c7;
+    --code-bg: #f0ece2;
+    --link: #8a2c2c;
+    --link-hover: #b03838;
+    --max-width: 1180px;
+    --content-width: 720px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Source Serif 4', 'Source Serif Pro', Georgia, serif;
+    font-size: 18px;
+    line-height: 1.55;
+    font-feature-settings: "kern" 1, "liga" 1, "onum" 1;
+  }
+
+  .site-header {
+    border-bottom: 1px solid var(--rule);
+    padding: 22px 0 18px;
+    margin-bottom: 36px;
+  }
+  .site-header-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 32px;
+    display: flex;
+    align-items: baseline;
+    gap: 28px;
+    font-size: 17px;
+  }
+  .site-header a {
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .site-header a:hover { color: var(--accent); }
+  .site-header .nav-spacer { flex: 1; }
+
+  .page {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 32px 120px;
+    position: relative;
+  }
+
+  .content {
+    max-width: var(--content-width);
+    margin: 0;
+  }
+
+  h1.title {
+    font-size: 38px;
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 8px 0 14px;
+  }
+
+  .meta-row {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-bottom: 40px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin: 56px 0 18px;
+    line-height: 1.2;
+  }
+
+  h3 {
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 38px 0 14px;
+    line-height: 1.25;
+  }
+
+  p {
+    margin: 0 0 16px;
+  }
+
+  strong {
+    font-weight: 700;
+  }
+
+  a {
+    color: var(--link);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s;
+  }
+  a:hover {
+    color: var(--link-hover);
+    border-bottom-color: var(--link-hover);
+  }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  pre {
+    background: var(--code-bg);
+    border-radius: 6px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 24px;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+  }
+
+  blockquote {
+    margin: 0 0 24px;
+    padding: 0 0 0 20px;
+    border-left: 3px solid var(--rule);
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  ul, ol {
+    margin: 0 0 16px;
+    padding-left: 24px;
+  }
+
+  li {
+    margin-bottom: 8px;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 48px 0;
+  }
+
+  .lead {
+    font-size: 20px;
+    line-height: 1.6;
+    color: var(--text);
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 720px) {
+    body { font-size: 17px; }
+    .page, .site-header-inner { padding: 0 20px; }
+    .site-header-inner { gap: 18px; flex-wrap: wrap; }
+    h1.title { font-size: 30px; }
+    h2 { font-size: 22px; }
+    pre { padding: 16px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html">Writing</a>
+    <a href="https://www.linkedin.com/in/prakhargautam/" target="_blank">LinkedIn</a>
+    <a href="https://github.com/prakhag2" target="_blank">GitHub</a>
+    <span class="nav-spacer"></span>
+  </div>
+</header>
+
+<main class="page">
+  <div class="content">
+
+    <h1 class="title">Shaping Agent Behavior Through Trajectory Optimization</h1>
+    <div class="meta-row">May 2026 &middot; AI Agents</div>
+
+    <p class="lead">Here's something that should bother you more than it probably does.</p>
+
+    <p>You build an AI agent, give it a task to work with a real environment &mdash; a messy database, a live API, a filesystem with twenty years of accumulated decisions baked in &mdash; and it fails. So you fix the prompt. You add more instructions, more examples, a retry loop. But it falls apart: confidently querying tables that don't exist, retrying broken assumptions and giving up halfway telling the user it couldn't find anything. Remember, prompt is an advisory, not a guarantee.</p>
+
+    <p>The deeper issue is this: we've been treating agent failures as a knowledge problem &mdash; the agent didn't know the right table name, the right API parameter, the right format. So we tell it more things. But knowledge isn't what breaks down. What breaks down is <strong>judgment</strong> &mdash; knowing how to recover when something's wrong and when you actually have enough information to commit.</p>
+
+    <h2>The cost of guessing in complex environments</h2>
+
+    <p>To make this concrete, here's an environment that exposes the problem.</p>
+
+    <p>A hospital management system. 90+ tables. The kind of database where nothing is named what you'd expect:</p>
+
+    <ul>
+      <li>Revenue lives in a column called <code>NetAmount</code> inside a table called <code>ArItem</code>, not in anything called "Billing" or "Payments."</li>
+      <li>Doctors are rows in a generic <code>User</code> table.</li>
+      <li>There are tables with nearly identical names: one current, one a legacy view missing half the keys you need.</li>
+    </ul>
+
+    <p>Now ask the agent: <em>"How much do patients typically spend per visit?"</em></p>
+
+    <p>Here's what it does:</p>
+
+<pre><code>SHOW TABLES FROM hospital_db
+&rarr; sees ArItem, Admission, User, BedTransfer...
+
+SELECT * FROM billing
+&rarr; table doesn't exist
+
+SELECT * FROM payments
+&rarr; table doesn't exist
+
+"I'm unable to determine billing information."</code></pre>
+
+    <p>It looked at the schema, saw 90 tables, and still went straight for the obvious guesses. <code>ArItem</code> was right there in the results &mdash; it just didn't mean anything without knowing what was inside it. So instead of digging in, it pattern-matched to names that sounded financial.</p>
+
+    <p>Before we dive into a fix, let's understand how these agents work under the hood. Every time the agent makes a decision, the framework packages everything that's happened so far &mdash; the original question, every action taken, every result returned &mdash; and sends it to the model. The model has no persistent memory. It just sees the history and decides what to do next.</p>
+
+    <p>Watch what that looks like in practice. This is the context the agent sees at step five of a real interaction:</p>
+
+<pre><code>User: "Which doctors generate the most revenue?"
+
+Action: SHOW TABLES &rarr; [ArItem, Admission, User, BedTransfer...]
+Action: DESCRIBE ArItem &rarr; [NetAmount, PatientId, DoctorUserId...]
+Action: DESCRIBE User &rarr; [UserId, UserType, Specialty...]
+Action: SELECT ... JOIN ... &rarr; ERROR: column DoctorUserId doesn't exist</code></pre>
+
+    <p>No reasoning. No memory of why it chose those tables. Just a trail of actions and results, and now it has to decide what to do next without any of the thinking that got it here.</p>
+
+    <h2>Optimizing the trajectory, not the output</h2>
+
+    <p>The path followed above makes the failure pattern consistent. And it points to an obvious fix &mdash; if the problem lives inside the decisions, that's where the training needs to go.</p>
+
+    <p>Take step five from above. The agent hit an error &mdash; column <code>DoctorUserId</code> doesn't exist. It has three prior actions in its history, no memory of its own reasoning, and needs to decide what to do next. The bad instinct is to mutate the query and try again:</p>
+
+<pre><code>SELECT ... DoctorId ...    &rarr; ERROR: column doesn't exist
+SELECT ... DocId ...       &rarr; ERROR: column doesn't exist</code></pre>
+
+    <p>Same broken assumption, different spelling. The good instinct is to go back and actually check:</p>
+
+<pre><code>DESCRIBE hospital_db.ArItem
+&rarr; finds the correct column name: DoctorUserId... wait, it does exist
+&rarr; the issue was the JOIN condition, not the column</code></pre>
+
+    <p>Do that across hundreds of interactions, and you end up with a model that's been trained on the hard moments specifically &mdash; not what a good answer looks like but what good judgment looks like when things are going sideways.</p>
+
+    <p>However, there's a problem with this approach. To train on good decision moments, you need examples of good trajectories. And in production, most of what you have is bad ones. So where does the training data actually come from?</p>
+
+    <p>Three places:</p>
+
+    <p><strong>The first</strong> is production traces &mdash; real interactions where the agent happened to navigate correctly. Filter ones that explored properly, recovered cleanly, and reached the right answer. They're the most valuable because they're grounded in real environments with real constraints.</p>
+
+    <p><strong>The second</strong> is using a stronger model to generate good paths. Point a more capable model at the same environment, let it explore, and harvest the resulting trajectories. It's slower and more expensive, but it works for covering cases your production data doesn't.</p>
+
+    <p><strong>The third</strong> &mdash; and most interesting &mdash; is repairing broken trajectories.</p>
+
+    <p>Instead of throwing away a bad interaction and starting over, you find the exact moment it went wrong and fix just that branch. Here's what that looks like with the hospital database:</p>
+
+    <p><strong>Original broken path:</strong></p>
+
+<pre><code>SHOW TABLES &rarr; sees ArItem, Admission, User...
+SELECT * FROM billing   &rarr; table doesn't exist
+SELECT * FROM payments  &rarr; table doesn't exist
+"I'm unable to determine billing information."</code></pre>
+
+    <p>The mistake happened at step two. The agent saw the table list but ignored it. So instead of discarding the whole interaction, you repair it:</p>
+
+    <p><strong>Repaired path:</strong></p>
+
+<pre><code>SHOW TABLES &rarr; sees ArItem, Admission, User...
+DESCRIBE hospital_db.ArItem &rarr; finds NetAmount, PatientId
+SELECT AVG(NetAmount) FROM ArItem &rarr; returns answer</code></pre>
+
+    <h2>From trajectories to training data</h2>
+
+    <p>Once you have a pool of good trajectories &mdash; from production, generated, or repaired &mdash; the next challenge is turning them into something you can actually train on.</p>
+
+    <p>The naive approach is to treat each full interaction as one training example. Question goes in, final answer comes out, train on that. But that's exactly the problem we started with. You're back to teaching the destination and ignoring the journey.</p>
+
+    <p>Instead, you slice each interaction at every decision point. A six-step interaction doesn't produce one training example &mdash; it produces six. Each slice is just a snapshot: here's everything the agent knew up to this moment, here's what the right move was.</p>
+
+    <p>For the hospital database interaction, that looks something like this:</p>
+
+    <p><strong>Slice 1</strong> &mdash; the agent has only the question:</p>
+
+<pre><code>User: "Which doctors generate the most revenue?"
+&rarr; Right move: SHOW TABLES. You know nothing. Look around first.</code></pre>
+
+    <p><strong>Slice 3</strong> &mdash; the agent has seen the table list and inspected ArItem:</p>
+
+<pre><code>User: "Which doctors generate the most revenue?"
+Action: SHOW TABLES &rarr; [ArItem, User, Admission...]
+Action: DESCRIBE ArItem &rarr; [NetAmount, DoctorUserId, PatientId...]
+&rarr; Right move: DESCRIBE User. You know where revenue lives, now find where doctors live.</code></pre>
+
+    <p><strong>Slice 6</strong> &mdash; the agent has verified everything it needs:</p>
+
+<pre><code>User: "Which doctors generate the most revenue?"
+Action: SHOW TABLES &rarr; ...
+Action: DESCRIBE ArItem &rarr; NetAmount confirmed
+Action: DESCRIBE User &rarr; UserType, Specialty confirmed
+Action: Verified join path through DoctorUserId
+&rarr; Right move: Execute. You have enough. Stop exploring.</code></pre>
+
+    <p>That last one is critical. Knowing when to stop exploring is just as important as knowing when to start. An agent that keeps checking tables after it already has everything it needs is burning steps and risking drift.</p>
+
+    <p>Each slice teaches something different. Early slices teach exploration. Middle slices teach how to interpret what you've found and what to check next. Late slices teach the judgment call.</p>
+
+    <p>Train on all of them, and you're not teaching the agent what to think &mdash; you're teaching it how to think at every stage of getting to the right answer. The question then is how you run that training without it collapsing back into standard finetuning.</p>
+
+    <p>The setup is straightforward. Each slice goes in as a complete interaction &mdash; full history, current state, everything the agent would see at that exact moment in a real run. But only one thing gets trained on: the decision at the end. Everything before it gets masked.</p>
+
+    <p>It looks like this:</p>
+
+<pre><code>[question + prior actions + tool results]  &rarr;  [reasoning + next action]
+        masked, no gradient                        trained on this</code></pre>
+
+    <p>Note that not all slices are equally hard. Early steps are relatively obvious &mdash; when you know nothing, looking around first is an easy call. The difficult moments are in the middle. Those slices got more weight in training, because that's exactly where good and bad agents diverge.</p>
+
+    <h2>Same agent, different instincts</h2>
+
+    <p>The most important thing that changed wasn't the accuracy number. It was what the agent did when things went wrong.</p>
+
+    <p><strong>Before:</strong></p>
+
+<pre><code>SELECT * FROM billing        &rarr; ERROR
+SELECT * FROM bills          &rarr; ERROR
+SELECT * FROM invoices       &rarr; ERROR
+"Unable to find billing information."</code></pre>
+
+    <p><strong>After:</strong></p>
+
+<pre><code>SELECT * FROM billing        &rarr; ERROR
+SHOW TABLES FROM hospital_db &rarr; [ArItem, Admission, User...]
+DESCRIBE hospital_db.ArItem  &rarr; finds NetAmount
+SELECT AVG(NetAmount) FROM ArItem &rarr; correct answer</code></pre>
+
+    <p>One error, two completely different instincts. Before, the error was treated as a formatting problem. After, the error was a signal.</p>
+
+    <p>That shift showed up consistently across different questions, different failure points, different parts of the schema. The agent wasn't just getting better at the easy cases. It was getting better at recovering from the hard ones.</p>
+
+    <p>If you want to go deeper &mdash; the full trajectory slicing format, training setup, and implementation details are in the <a href="https://github.com/prakhag2/agent-trajectory-optimization">agent-trajectory-optimization</a> repository.</p>
+
+  </div>
+</main>
+
+</body>
+</html>
