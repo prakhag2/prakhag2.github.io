@@ -367,6 +367,24 @@ SELECT AVG(NetAmount) FROM ArItem &rarr; correct answer</code></pre>
 
     <p>That shift showed up consistently across different questions, different failure points, different parts of the schema. The agent wasn't just getting better at the easy cases. It was getting better at recovering from the hard ones.</p>
 
+    <h2>Evaluating the change</h2>
+
+    <p>Saying "the agent got better" isn't enough. You need to measure <em>what</em> got better and at what granularity. We evaluate across three dimensions, each capturing a different layer of agent behavior:</p>
+
+    <p><strong>1. Agent trajectory optimality.</strong> Did the agent take the right path? This compares the sequence of exploration steps against a ground truth trajectory &mdash; not just whether it arrived at the answer, but whether it got there efficiently and with sound reasoning at each step.</p>
+
+    <img src="../assets/img/eval-1.png" alt="Agent trajectory evaluation showing path similarity of 95% and reasoning score of 4.8/5" style="max-width: 100%; margin: 24px 0; border-radius: 6px;">
+
+    <p><strong>2. Tool selection and arguments.</strong> Did the agent pick the right tools and pass the right parameters? This catches a subtle failure mode: an agent can follow the right high-level plan but still break at execution because it passed the wrong column name or used the wrong SQL function.</p>
+
+    <img src="../assets/img/eval-2.png" alt="Tool calling evaluation showing 100% tool selection accuracy and 95% parameter accuracy" style="max-width: 100%; margin: 24px 0; border-radius: 6px;">
+
+    <p><strong>3. Final result correctness.</strong> Did the agent produce the right answer? This is the obvious metric, but on its own it's misleading &mdash; an agent can stumble into the right answer through luck. Combined with trajectory and tool evaluation, it completes the picture.</p>
+
+    <img src="../assets/img/eval-3.png" alt="Final result evaluation showing 100% key facts, 98% similarity, 100% completeness, and 4.9/5 quality" style="max-width: 100%; margin: 24px 0; border-radius: 6px;">
+
+    <p>All three matter. An agent that takes the optimal path but picks the wrong tool fails. An agent that picks the right tools but wanders through unnecessary steps is fragile. An agent that gets the right answer by brute-forcing every possible query hasn't actually learned judgment. The trajectory-trained model improved across all three simultaneously &mdash; which is what gives confidence that the behavioral change is real, not just a lucky shortcut.</p>
+
     <p><em>If you want to go deeper &mdash; the full trajectory slicing format, training setup, and implementation details are in the <a href="https://github.com/prakhag2/agent-trajectory-optimization">agent-trajectory-optimization</a> repository.</em></p>
 
   </div>
