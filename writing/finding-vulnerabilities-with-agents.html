@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finding Real Vulnerabilities Without Guessing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fbf9f4;
+    --text: #1a1a1a;
+    --text-muted: #5a5a5a;
+    --accent: #8a2c2c;
+    --rule: #d8d3c7;
+    --code-bg: #f0ece2;
+    --link: #8a2c2c;
+    --link-hover: #b03838;
+    --max-width: 1180px;
+    --content-width: 720px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Source Serif 4', 'Source Serif Pro', Georgia, serif;
+    font-size: 18px;
+    line-height: 1.55;
+    font-feature-settings: "kern" 1, "liga" 1, "onum" 1;
+  }
+
+  .site-header {
+    border-bottom: 1px solid var(--rule);
+    padding: 22px 0 18px;
+    margin-bottom: 36px;
+  }
+  .site-header-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 32px;
+    display: flex;
+    align-items: baseline;
+    gap: 28px;
+    font-size: 17px;
+  }
+  .site-header a {
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .site-header a:hover { color: var(--accent); }
+  .site-header .nav-spacer { flex: 1; }
+
+  .page {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 32px 120px;
+    position: relative;
+  }
+
+  .content {
+    max-width: var(--content-width);
+    margin: 0;
+  }
+
+  h1.title {
+    font-size: 38px;
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 8px 0 14px;
+  }
+
+  .meta-row {
+    color: var(--text-muted);
+    font-size: 14px;
+    margin-bottom: 40px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  h2 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin: 56px 0 18px;
+    line-height: 1.2;
+  }
+
+  h3 {
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 38px 0 14px;
+    line-height: 1.25;
+  }
+
+  p {
+    margin: 0 0 16px;
+  }
+
+  strong {
+    font-weight: 700;
+  }
+
+  a {
+    color: var(--link);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s;
+  }
+  a:hover {
+    color: var(--link-hover);
+    border-bottom-color: var(--link-hover);
+  }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85em;
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  pre {
+    background: var(--code-bg);
+    border-radius: 6px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 24px;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+  }
+
+  blockquote {
+    margin: 0 0 24px;
+    padding: 0 0 0 20px;
+    border-left: 3px solid var(--rule);
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  ul, ol {
+    margin: 0 0 16px;
+    padding-left: 24px;
+  }
+
+  li {
+    margin-bottom: 8px;
+  }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 48px 0;
+  }
+
+  .lead {
+    font-size: 20px;
+    line-height: 1.6;
+    color: var(--text);
+    margin-bottom: 24px;
+  }
+
+  .figure {
+    margin: 32px 0;
+    text-align: center;
+  }
+  .figure img {
+    max-width: 100%;
+    border-radius: 6px;
+    border: 1px solid var(--rule);
+  }
+  .figure .caption {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 10px;
+    font-style: italic;
+  }
+
+  .figure-wide {
+    margin: 32px -80px;
+  }
+
+  @media (max-width: 900px) {
+    .figure-wide { margin: 32px 0; }
+  }
+
+  @media (max-width: 720px) {
+    body { font-size: 17px; }
+    .page, .site-header-inner { padding: 0 20px; }
+    .site-header-inner { gap: 18px; flex-wrap: wrap; }
+    h1.title { font-size: 30px; }
+    h2 { font-size: 22px; }
+    pre { padding: 16px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a href="../index.html">Writing</a>
+    <a href="https://www.linkedin.com/in/prakhargautam/" target="_blank">LinkedIn</a>
+    <a href="https://github.com/prakhag2" target="_blank">GitHub</a>
+    <span class="nav-spacer"></span>
+  </div>
+</header>
+
+<main class="page">
+  <div class="content">
+
+    <h1 class="title">Finding Real Vulnerabilities Without Guessing</h1>
+    <div class="meta-row">May 2026 &middot; Security &middot; AI Agents</div>
+
+    <p class="lead">There's a version of AI-assisted security testing that sounds great in demos and falls apart the moment you point it at real code.</p>
+
+    <p>The pitch goes like this: take a powerful model, give it access to a codebase, tell it to find vulnerabilities. Maybe wrap it in an agent loop so it can read files and run commands. The model is smart enough to understand code, so it should be smart enough to find the bugs. Right?</p>
+
+    <p>In practice, what you get back is a list of twenty "findings" &mdash; half of them are OWASP top-ten descriptions copy-pasted onto your route handlers, a few are real patterns applied to wrong contexts, and maybe one or two are interesting but unverifiable. You can't tell which is which without reading every line of code yourself, which defeats the entire point.</p>
+
+    <p>The problem isn't the model's ability to reason about code. It's that finding real vulnerabilities requires knowing what <em>actually executes</em>, not just what could hypothetically go wrong. And you can't get there by reading source files and guessing.</p>
+
+    <h2>What we're building toward</h2>
+
+    <p>This post walks through an approach we built and ran against <a href="https://owasp.org/www-project-juice-shop/">OWASP Juice Shop</a> &mdash; a deliberately vulnerable Node.js application with over a hundred known security issues across authentication, injection, authorization, and cryptography.</p>
+
+    <div class="figure">
+      <!-- SCREENSHOT: The main scanner UI showing the "Complexity Flow Scan" pipeline
+           stages: Babel AST → Runtime Trace → Call Tree. Capture the full top section
+           of https://d3v0tyjuygpl5i.cloudfront.net/ -->
+      <img src="../assets/img/scanner-overview.png" alt="AI Vulnerability Scanner showing the three-stage pipeline: Babel AST parsing, Runtime Trace capture, and Call Tree construction">
+      <div class="caption">The scanning pipeline. Static parsing feeds into dynamic tracing, which produces call trees that agents can reason over.</div>
+    </div>
+
+    <p>The core idea: instead of handing an agent a repository and hoping it comes back with realistic vulnerabilities, you build a pipeline that gives the agent something much more constrained and useful &mdash; a graph of what actually happened at runtime, annotated with formal security properties, so it can form and test specific hypotheses rather than generating plausible-sounding guesses.</p>
+
+    <p>We'll walk through why the naive approach fails, what static analysis actually gives you (and where it stops), how dynamic tracing fills the gap, and how to structure the whole thing so that an agent's work is verifiable at every step.</p>
+
+    <h2>Why "just scan the code" doesn't work</h2>
+
+    <p>Let's start with what most people try first.</p>
+
+    <p>You point a model at a codebase. Maybe you give it a system prompt that says "you are a security expert." Maybe you feed it files one by one, or let it browse with a tool. The model reads through route handlers, spots patterns that look like known vulnerability classes, and reports them.</p>
+
+    <p>Here's what that looks like against Juice Shop's login endpoint:</p>
+
+<pre><code>// routes/login.ts
+models.sequelize.query(
+  `SELECT * FROM Users WHERE email = '${req.body.email}'
+   AND password = '${security.hash(req.body.password)}'`,
+  { model: UserModel, plain: true }
+)</code></pre>
+
+    <p>An agent reading this file will correctly flag SQL injection. The string interpolation of <code>req.body.email</code> into a raw query is textbook. This is the easy case &mdash; the vulnerability is visible in a single expression, no context needed.</p>
+
+    <p>But most real vulnerabilities aren't like this. They live in the interaction between components. Consider this pattern from the same codebase:</p>
+
+<pre><code>// routes/basket.ts
+module.exports = function retrieveBasket () {
+  return (req, res, next) => {
+    const id = req.params.id
+    BasketModel.findOne({ where: { id }, include: [ProductModel] })
+      .then(basket => {
+        if (basket?.Products?.length > 0) {
+          for (let i = 0; i < basket.Products.length; i++) {
+            basket.Products[i].name = req.__(basket.Products[i].name)
+          }
+        }
+        res.json(utils.queryResultToJson(basket))
+      })
+    }
+}</code></pre>
+
+    <p>Is this vulnerable? Reading just this file, you might say "no &mdash; it queries by ID from URL params, but Sequelize parameterizes <code>findOne</code> by default." And you'd be partially right. The query itself is safe. But the security question is: <em>does anything verify that the basket belongs to the requesting user?</em></p>
+
+    <p>That answer lives somewhere else &mdash; in a middleware, in how the route is registered, in what the JWT token contains and whether it's checked. An agent reading files in isolation can't answer this reliably. It would have to guess whether authorization exists upstream, and that guess is where most false positives come from.</p>
+
+    <h2>Static analysis: what it gives you, honestly</h2>
+
+    <p>Before going further, let's be clear: static analysis is valuable and complementary to everything discussed here. Tools like Semgrep, CodeQL, and Bandit catch real bugs &mdash; hardcoded secrets, unsafe deserialization, SQL injection via string formatting, use of deprecated crypto. They work by matching patterns against the AST without running the code.</p>
+
+    <div class="figure">
+      <!-- SCREENSHOT: The "Static Analysis" tab in the scanner UI showing
+           findings loaded for a test case. Capture the tab content after
+           selecting a test and showing the static findings list. -->
+      <img src="../assets/img/static-analysis-tab.png" alt="Static analysis findings panel showing pattern-matched issues categorized by severity">
+      <div class="caption">Static analysis findings for a Juice Shop route. Pattern-matching catches the obvious &mdash; string interpolation in queries, hardcoded secrets, weak hashing.</div>
+    </div>
+
+    <p>For the class of issues where the vulnerability is self-contained in one expression or one function body, static analysis is the right tool. It's fast, deterministic, and scales to massive codebases without needing the application to run.</p>
+
+    <p>But it has a fundamental limitation: it reasons about what code <em>could</em> do, not what it <em>does</em> do. Consider:</p>
+
+    <ul>
+      <li>A route handler that looks unprotected might have auth middleware registered at the router level, invisible to per-file analysis.</li>
+      <li>A function that takes unsanitized input might never be called with attacker-controlled data in practice.</li>
+      <li>A weak crypto function might exist but only run in test configuration.</li>
+      <li>A taint path that looks exploitable might be unreachable because of runtime type coercion or early-return conditions.</li>
+    </ul>
+
+    <p>Static analysis can't resolve these without modeling the entire application's runtime behavior &mdash; at which point you're effectively building an interpreter, not a pattern matcher.</p>
+
+    <p>This is where dynamic tracing enters. Not as a replacement for static analysis, but as the piece that answers "does this actually happen?"</p>
+
+    <h2>Capturing what actually executes</h2>
+
+    <p>The approach starts with instrumenting the application at the module loading level. For a Node.js application like Juice Shop, that means hooking into the module compiler itself:</p>
+
+<pre><code>// tracer-hook.mjs — activated via: node --import ./tracer-hook.mjs
+import { register } from 'node:module';
+register('./tracer-loader.mjs', import.meta.url);
+
+globalThis.__trace_enter = function(funcName, file, line, args) {
+  const parentId = callStack[callStack.length - 1] || null;
+  const id = nextId++;
+  traces.push({
+    id, parent: parentId, depth: callStack.length,
+    func: funcName, file, line,
+    input: serialize(args), output: null
+  });
+  callStack.push(id);
+  return id;
+};
+
+globalThis.__trace_exit = function(traceId, returnValue) {
+  const entry = traces.find(t => t.id === traceId);
+  if (entry) entry.output = serialize(returnValue);
+  // pop stack...
+};</code></pre>
+
+    <p>When Juice Shop loads, every function gets instrumented via Babel &mdash; transformed in memory, not on disk &mdash; so that entering and exiting any function records its arguments, return values, parent caller, and position in the call stack. No source files are modified. The application runs normally, just observed.</p>
+
+    <p>Then you exercise the application. In our case, we run Juice Shop's own API test suite &mdash; over a hundred test cases covering authentication, basket manipulation, user registration, file uploads, payment workflows, and more. Each test produces a complete execution trace.</p>
+
+    <div class="figure">
+      <!-- SCREENSHOT: The "Dynamic Tracing" tab showing a loaded trace for a
+           specific test case, e.g. "2FA verify" or "basket retrieval".
+           Show the test selector dropdown and the trace data below. -->
+      <img src="../assets/img/dynamic-trace-tab.png" alt="Dynamic tracing panel showing captured execution trace for a 2FA verification test case">
+      <div class="caption">A runtime trace for the 2FA verification flow. Every function call, its inputs, outputs, and position in the call stack &mdash; captured from an actual test execution.</div>
+    </div>
+
+    <p>Here's what one entry looks like in the raw trace &mdash; the application's 2FA verification endpoint, exercised by a test that sends a forged token:</p>
+
+<pre><code>{
+  "id": 1,
+  "parent": null,
+  "depth": 0,
+  "func": "_ret0",
+  "file": "routes/metrics.ts",
+  "line": 2,
+  "input": {
+    "req": {
+      "__type": "Request",
+      "method": "POST",
+      "url": "/rest/2fa/verify",
+      "body": { "tmpToken": "unsigned.jwt.here", "totp": "123456" },
+      "headers": { "content-type": "application/json" }
+    }
+  },
+  "output": "&lt;void&gt;"
+}</code></pre>
+
+    <p>This isn't speculation about what might happen. This is what <em>did</em> happen. The function was called. These exact values flowed through. And because the trace captures the parent-child relationship between calls, you can reconstruct the full path from HTTP request to database write to response.</p>
+
+    <h3>Why this works especially well for new code</h3>
+
+    <p>Here's a practical advantage that isn't immediately obvious: dynamic tracing is scoped to what you exercise. You don't need to analyze the entire codebase. If you just merged a new feature &mdash; say, a coupon redemption endpoint &mdash; you write or run the tests for that feature, capture the trace, and analyze only the paths that executed.</p>
+
+    <p>Compare this to running static analysis across the entire project after every PR. On a codebase the size of Juice Shop (hundreds of source files, thousands of routes and models), a full static scan produces noise from unchanged code that drowns out the signal from your new changes. Dynamic tracing naturally focuses on the delta &mdash; you trace the new functionality, and what you get back is the security-relevant behavior of exactly that code.</p>
+
+    <h2>From traces to call trees to a graph you can query</h2>
+
+    <p>A flat list of function calls is useful but hard to reason over. The next step transforms traces into call trees &mdash; hierarchical structures showing which functions called which, what data passed between them, and where in the application each call lives.</p>
+
+    <div class="figure figure-wide">
+      <!-- SCREENSHOT: The Call Tree visualization from the scanner UI.
+           Show the "Call Tree Neo4j Graph" view with nodes and relationships
+           visible. Ideally for a test case that shows auth flow
+           (e.g., login or 2FA). -->
+      <img src="../assets/img/call-tree-neo4j.png" alt="Neo4j graph visualization showing a call tree with nodes colored by security role: TaintSource (red), Validator (blue), SessionWriter (green)">
+      <div class="caption">The call tree for a login flow, loaded into Neo4j. Red nodes read from user input. Blue nodes validate. Green nodes write to session storage. Edges show actual execution order.</div>
+    </div>
+
+    <p>These trees get loaded into Neo4j &mdash; a graph database where you can query relationships. "Show me every path from a node that reads HTTP input to a node that writes to the database" becomes a Cypher query, not a manual code review.</p>
+
+    <p>But here's the thing &mdash; a raw call tree still doesn't tell you what's security-relevant. A function called <code>findOne</code> might be reading user credentials or fetching a product image. The call tree shape is identical. You need to know what each node <em>means</em> in security terms.</p>
+
+    <p>That's where the ontology comes in.</p>
+
+    <h2>Giving code formal security meaning</h2>
+
+    <p>This is the piece that makes the whole approach deterministic rather than probabilistic. Instead of asking an agent "does this look vulnerable?", you classify every function in the execution graph using a formal ontology &mdash; a structured vocabulary of security roles.</p>
+
+    <p>The ontology defines what functions <em>are</em> based on what they do:</p>
+
+<pre><code>class InputReader(FunctionNode):
+    """Reads from user-controlled source (HTTP headers, body, query)."""
+
+class SessionWriter(FunctionNode):
+    """Writes to session storage or authentication state."""
+
+class Validator(FunctionNode):
+    """Checks preconditions. Raises or returns error on failure."""
+
+class CryptoOp(FunctionNode):
+    """Performs cryptographic operation (hashing, signing, verifying)."""
+
+class TaintSource(FunctionNode):
+    """Origin of attacker-controlled data."""</code></pre>
+
+    <p>Classification happens automatically, based on the trace data itself. A function that receives an Express <code>Request</code> object and reads <code>req.body</code> gets classified as <code>InputReader</code>. A function that calls <code>jwt.verify()</code> gets classified as <code>CryptoOp</code>. A function that calls <code>session.save()</code> gets classified as <code>SessionWriter</code>. No hardcoded function names &mdash; the patterns match on observed behavior.</p>
+
+    <div class="figure">
+      <!-- SCREENSHOT: Neo4j browser showing a Cypher query result.
+           Ideally show something like:
+           MATCH path = (src:TaintSource)-[:CALLS*]->(sink:SessionWriter)
+           WHERE NOT EXISTS { (v:Validator) WHERE v IN nodes(path) }
+           RETURN path
+           Show the visual result with colored nodes. -->
+      <img src="../assets/img/neo4j-taint-query.png" alt="Neo4j query showing a path from TaintSource to SessionWriter with no Validator in between, highlighted in red">
+      <div class="caption">A Cypher query finding paths from taint sources to session writers with no validator in between. Each result is a specific, testable hypothesis &mdash; not a guess.</div>
+    </div>
+
+    <p>Once the graph is annotated, you can ask structural questions that have deterministic answers:</p>
+
+<pre><code>// "Find every path from attacker-controlled input to a session write
+//  that has NO validator or crypto check in between"
+
+MATCH path = (src:TaintSource)-[:CALLS*1..6]->(sink:SessionWriter)
+WHERE src.test = 'test_login'
+  AND NONE(n IN nodes(path)[1..-1]
+       WHERE n:Validator OR n:CryptoOp)
+RETURN path</code></pre>
+
+    <p>If this query returns results, you have a concrete path to investigate &mdash; not a heuristic match, not a model's best guess, but a structural fact about the application's runtime behavior. The taint source is specific (this function, this file, this line). The sink is specific. And the absence of defense is verifiable.</p>
+
+    <h2>Why you can't just point an agent at a repo</h2>
+
+    <p>Now let's come back to why the naive approach &mdash; "here's the codebase, find vulnerabilities" &mdash; produces unreliable results.</p>
+
+    <p>When you give an agent a large repository and ask it to find security issues, it faces an impossible search problem. Juice Shop has hundreds of source files. The agent needs to:</p>
+
+    <ol>
+      <li>Understand the application's routing structure</li>
+      <li>Trace data flow across middleware, route handlers, models, and utilities</li>
+      <li>Determine which inputs are attacker-controlled</li>
+      <li>Figure out what defenses exist and whether they're applied consistently</li>
+      <li>Distinguish between intentional design choices and missing checks</li>
+    </ol>
+
+    <p>Doing all of that by reading files is like trying to understand a city's traffic patterns by looking at a map. The map tells you where roads exist. It doesn't tell you which ones are actually used, where the bottlenecks form, or which intersections have broken signals.</p>
+
+    <p>Here's what actually happens when you try. We ran an experiment: same model, same codebase, two approaches.</p>
+
+    <p><strong>Approach A &mdash; agent with file access only:</strong></p>
+
+<pre><code>Agent reads routes/login.ts
+&rarr; "Potential SQL injection in email parameter"      ✓ (real)
+&rarr; "No rate limiting on login attempts"              ✓ (real, but low-value)
+&rarr; "Password comparison may be timing-vulnerable"    ✗ (wrong &mdash; uses hash comparison)
+
+Agent reads routes/basket.ts
+&rarr; "Missing authorization check on basket access"    ? (maybe &mdash; can't verify without knowing middleware)
+&rarr; "No input validation on basket ID parameter"      ✗ (Sequelize parameterizes)
+
+Agent reads lib/insecurity.ts
+&rarr; "JWT signed with weak secret"                    ? (depends on config)
+&rarr; "authorize() function doesn't verify token exp"  ? (need to see how it's called)</code></pre>
+
+    <p>Three definitive answers out of seven findings. The rest require context the agent doesn't have.</p>
+
+    <p><strong>Approach B &mdash; agent with annotated call graph:</strong></p>
+
+<pre><code>Planner queries Neo4j:
+  "Paths from TaintSource to DBWriter with no Validator"
+&rarr; Returns 3 specific paths with file locations and line numbers
+
+Attacker reads source along each path, generates hypothesis:
+  "In test 'basket_retrieval': req.params.id flows directly to
+   BasketModel.findOne() with no ownership check. The JWT middleware
+   sets req.user but nothing compares req.user.id to basket.UserId."
+
+Verifier runs exploit test:
+  POST /api/Baskets/2  (with user1's token, accessing user2's basket)
+&rarr; 200 OK, returns basket contents
+&rarr; CONFIRMED: Broken Object-Level Authorization (BOLA)</code></pre>
+
+    <p>Same codebase. The difference is what the agent started with &mdash; not a haystack of files to read, but a specific structural finding to verify.</p>
+
+    <h2>The three-agent pipeline</h2>
+
+    <p>This is where it all comes together. Instead of one agent trying to do everything, the work splits across three agents with different capabilities and constraints.</p>
+
+    <div class="figure figure-wide">
+      <!-- SCREENSHOT: The scanner UI showing the "3-Agent Pipeline:
+           Planner → Attacker → Verifier" section. Capture the pipeline
+           visualization or description panel. -->
+      <img src="../assets/img/three-agent-pipeline.png" alt="Pipeline diagram showing Planner (graph-only), Attacker (graph + source), and Verifier (source + test execution) with data flowing between them">
+      <div class="caption">Each agent sees only what it needs. The Planner works from graph topology. The Attacker reads source along identified paths. The Verifier runs actual tests.</div>
+    </div>
+
+    <h3>The Planner</h3>
+
+    <p>The Planner works <em>only</em> from graph topology. It cannot read source code. It queries the Neo4j graph across all traced test cases and identifies every attack surface &mdash; every path from a taint source to a sensitive sink, every validator that gates a security decision, every place where a defense exists in one flow but is missing from another.</p>
+
+    <p>Its output is a prioritized target list. Each target is a specific hypothesis:</p>
+
+<pre><code>{
+  "id": "T1-RemoteUser-Header-to-Login-SessionWriter",
+  "priority": "CRITICAL",
+  "path": [
+    "get_username (TaintSource)",
+    "process_request (Tainted)",
+    "authenticate (Tainted)",
+    "login (SessionWriter)"
+  ],
+  "property": "Authentication must verify identity through a
+               cryptographic secret",
+  "attack_angle": "If REMOTE_USER header can be injected,
+                   attacker gets full session as any user.
+                   No password check exists in this path."
+}</code></pre>
+
+    <p>Notice what this is: not "there might be a vulnerability somewhere in auth." It's a specific chain of functions, a specific security property that should hold, and a specific way it might be violated. The Planner can generate this because the graph gives it structural facts to reason over, not code to interpret.</p>
+
+    <h3>The Attacker</h3>
+
+    <p>The Attacker receives one target at a time. Unlike the Planner, it <em>can</em> read source code &mdash; but only along the path identified in the target. It reads each function on the chain, understands the exact conditions under which the defense holds or fails, and determines reachability: can an external attacker, controlling only HTTP requests, actually trigger this path?</p>
+
+    <p>This is where most naive agent findings die. The Attacker has strict reachability rules:</p>
+
+    <ul>
+      <li>Attacker CAN control: HTTP headers, request body, cookies, URL params, timing</li>
+      <li>Attacker CANNOT control: server config, environment variables, installed middleware, database contents directly</li>
+    </ul>
+
+    <p>If a finding requires the attacker to know a secret key or modify server configuration, it's classified as a hardening recommendation, not a vulnerability. This single constraint eliminates the majority of false positives that plague naive scanning.</p>
+
+    <p>When a path is reachable, the Attacker writes a complete test &mdash; real HTTP requests through the application's test client &mdash; that attempts to violate the security property.</p>
+
+    <h3>The Verifier</h3>
+
+    <p>The Verifier is the skeptic. It receives the Attacker's hypothesis and test code and independently evaluates whether the finding is real. It runs the test. If the test fails (meaning the security property was violated), it checks whether the failure actually demonstrates the claimed vulnerability or is just a test setup bug.</p>
+
+    <p>This adversarial structure matters. The Attacker is incentivized to find issues. The Verifier is incentivized to disprove them. A finding that survives both is substantially more likely to be real than one produced by a single agent acting as both prosecutor and judge.</p>
+
+    <div class="figure">
+      <!-- SCREENSHOT: The scan results panel after a completed scan.
+           Show the vulnerability findings with their verdicts:
+           confirmed, false_positive, hardening_recommendation, etc.
+           Include severity labels and evidence snippets. -->
+      <img src="../assets/img/scan-results.png" alt="Completed scan results showing 20 targets analyzed: findings categorized as confirmed vulnerabilities, hardening recommendations, and false positives with severity ratings">
+      <div class="caption">Results from a full pipeline run. Twenty targets identified from the graph, each with a specific verdict and evidence. No ambiguous "maybe" findings.</div>
+    </div>
+
+    <h2>Making it deterministic</h2>
+
+    <p>Let's step back and look at what's structurally different about this approach compared to "agent reads code, reports issues."</p>
+
+    <p><strong>The ontology removes interpretation.</strong> When the system says a function is a <code>TaintSource</code>, that's not a model's opinion. It's a classification based on observable facts &mdash; the function received an HTTP request object and read from its body. When it says a path has no <code>Validator</code>, that's a structural absence in the graph, not a judgment call about whether some code "looks like" validation.</p>
+
+    <p><strong>The graph query is reproducible.</strong> Run the same Cypher query against the same graph and you get the same paths every time. The agent's role isn't to discover these paths through creative exploration &mdash; it's to verify whether they represent real exploits. The discovery step is deterministic. Only the verification requires reasoning.</p>
+
+    <p><strong>The hypothesis is falsifiable.</strong> Every target has a specific security property: "authentication must verify identity through a cryptographic secret." The test either violates that property or it doesn't. There's no subjective severity rating that depends on how worried the agent feels. Property holds = not vulnerable. Property violated = vulnerable. Binary.</p>
+
+    <p><strong>The evidence is executable.</strong> A confirmed finding comes with a test that anyone can run. Not a description of a theoretical attack, not a paragraph explaining why something "could be" dangerous &mdash; a script that demonstrates the behavior. If you disagree with the finding, run the test and see what happens.</p>
+
+    <h2>How the pieces compose</h2>
+
+    <p>Here's the full flow, end to end:</p>
+
+<pre><code>1. Instrument the application (Babel hook, no code changes)
+2. Run tests → capture execution traces (per test case)
+3. Build call trees from traces (parent-child relationships)
+4. Classify nodes via ontology (TaintSource, Validator, SessionWriter...)
+5. Export to Neo4j (nodes = functions, edges = calls + data flow)
+6. Planner queries graph → prioritized target list
+7. Attacker reads source along each path → reachability + test code
+8. Verifier runs tests → confirmed / false positive / hardening</code></pre>
+
+    <p>Steps 1-5 are fully automated and deterministic. Given the same application code and same test suite, they produce the same graph every time. Steps 6-8 use AI agents, but constrained to specific tasks with verifiable outputs.</p>
+
+    <div class="figure figure-wide">
+      <!-- SCREENSHOT: The Package Graph view from the scanner UI,
+           showing the dependency relationships between modules.
+           This illustrates how the system understands module boundaries. -->
+      <img src="../assets/img/package-graph.png" alt="Package dependency graph showing relationships between Juice Shop modules: routes, models, lib, middleware">
+      <div class="caption">The package graph shows module-level relationships. Combined with the call tree, it reveals which security boundaries the application actually enforces vs. which ones only exist conceptually.</div>
+    </div>
+
+    <h2>Fitting into a development workflow</h2>
+
+    <p>One more thing worth making explicit: this approach works best when it's scoped, not when it's global.</p>
+
+    <p>Running a full static analysis sweep across an entire project after every change produces diminishing returns. You get the same fifty findings every time, most of which are either already known or intentionally accepted. The signal-to-noise ratio degrades with scale.</p>
+
+    <p>Dynamic tracing inverts this. You trace what you changed. A new endpoint, a refactored auth flow, a feature branch that touches payment logic &mdash; you run the tests for that specific thing, capture the trace, build the graph for those paths, and analyze only the new attack surface.</p>
+
+    <p>This makes it practical for PR review. A developer adds a new API endpoint:</p>
+
+<pre><code>1. Tests for the new endpoint run (they exist because you wrote them)
+2. Tracer captures execution → new trace file
+3. Ontology classifies the new functions
+4. Graph query checks: does this new code path have the same
+   defenses as existing similar paths?
+5. If not → specific, actionable finding attached to the PR</code></pre>
+
+    <p>The question isn't "is there anything wrong with the entire codebase?" It's "does this new code follow the same security contract as the code around it?" That's answerable. And it's answerable without reading every file in the repository.</p>
+
+    <h2>What this doesn't replace</h2>
+
+    <p>To be clear about boundaries:</p>
+
+    <p><strong>Static analysis still catches what it catches.</strong> Hardcoded secrets, string-interpolated queries, use of banned functions, dependency vulnerabilities &mdash; these are pattern-match problems and static tools handle them well. Run both. They're complementary, not competing.</p>
+
+    <p><strong>Manual review still matters for design flaws.</strong> If your threat model is wrong &mdash; if you're trusting a header you shouldn't trust in the first place &mdash; no amount of tracing will tell you the design is broken. Tracing can tell you the header reaches the session writer without validation. It can't tell you whether trusting that header was ever a good idea.</p>
+
+    <p><strong>Coverage depends on your tests.</strong> Dynamic tracing only captures what executes. If you don't have a test that exercises the vulnerable path, it won't appear in the trace. This is a feature (focus) and a limitation (blind spots) at the same time. The mitigation is straightforward: better test coverage gives you better security coverage. Which is true regardless of what analysis you run.</p>
+
+    <hr>
+
+    <p>The underlying principle is simple: don't ask an AI to guess what might be vulnerable. Give it facts about what actually executes, give those facts formal meaning, and ask it to verify whether specific security properties hold. Structure the problem so that the AI's job is reasoning over evidence, not generating hypotheses from thin air.</p>
+
+    <p>The gap between "agent that scans code" and "agent that finds real vulnerabilities" isn't intelligence. It's the quality of the questions you let it ask.</p>
+
+  </div>
+</main>
+
+</body>
+</html>
