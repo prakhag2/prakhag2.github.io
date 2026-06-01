@@ -246,17 +246,11 @@
 
     <p>Static analysis tools &mdash; Semgrep, CodeQL, Bandit &mdash; handle hardcoded secrets, string-interpolated queries, deprecated crypto. These are self-contained pattern matches that don't require runtime context.</p>
 
-    <p>But most real vulnerabilities aren't self-contained. They're properties of data flow across components.</p>
+    <p>But most real vulnerabilities aren't self-contained. They're properties of data flow across components &mdash; and that's exactly the gap between knowing a path exists in the source and knowing whether it's actually taken at runtime, with attacker-controlled data, without a defense in the way.</p>
 
-    <blockquote>Static analysis tells you a path exists. Dynamic tracing tells you whether that path is actually taken, with attacker-controlled data, without a defense in the way.</blockquote>
+    <blockquote>Static analysis tells you a path exists. Dynamic tracing tells you whether that path is actually taken.</blockquote>
 
-    <h2>A different starting point</h2>
-
-    <p>The shift is in what you hand the agent. Instead of source files to interpret, you give it a graph of what a specific functionality actually did at runtime &mdash; every function that executed, what data passed through it, and how it connected. The graph gets annotated with formal security roles: which node is a taint source, which one is a crypto operation, which one writes to session state.</p>
-
-    <p>Finding vulnerabilities then stops being a reading comprehension problem and becomes a structured query: does any path exist from attacker-controlled input to a privileged operation with no validation in between?</p>
-
-    <p>The agent's job shifts from guessing at what code might do to verifying specific properties against a map of what it did.</p>
+    <p>So what if you changed what you hand the agent? Instead of source files to interpret, you give it a graph of what a specific functionality actually did at runtime &mdash; every function that executed, what data passed through it, and how it connected. Annotate that graph with formal security roles: which node is a taint source, which one is a crypto operation, which one writes to session state. Finding vulnerabilities then stops being a reading comprehension problem and becomes a structured query: does any path exist from attacker-controlled input to a privileged operation with no validation in between?</p>
 
     <h2>Capturing what actually runs</h2>
 
@@ -320,11 +314,13 @@
 
     <p>This is where the AI finally comes in &mdash; but constrained to specific tasks, not open-ended code reading.</p>
 
-    <div class="figure figure-wide">
+    <p>Why three agents instead of one? Because a single agent playing both prosecutor and judge produces convincing-sounding findings that no one can verify. Splitting the work creates natural checkpoints. The Planner identifies targets from graph structure alone &mdash; it can't hallucinate code paths that don't exist in the graph. The Attacker reads source and builds exploits &mdash; but its claims are just hypotheses until tested. The Verifier executes the attack and either confirms it or kills it. Each agent's output is independently checkable, and the adversarial structure means a finding has to survive scrutiny, not just sound plausible.</p>
+
+    <div class="figure">
       <!-- IMAGE 2: three-agent-pipeline.png
            Screenshot showing the 3-agent pipeline diagram from the scanner UI.
            The "Planner → Attacker → Verifier" flow visualization. -->
-      <img src="../assets/img/three-agent-pipeline.png" alt="Three-agent pipeline diagram: Planner queries the graph, Attacker reads source and traces exploits, Verifier executes and confirms">
+      <img src="../assets/img/three-agent-pipeline.png" alt="Three-agent pipeline diagram: Planner queries the graph, Attacker reads source and traces exploits, Verifier executes and confirms" style="max-width: 600px; width: 100%;">
       <div class="caption">The three-agent pipeline. Each agent is constrained to a specific task with verifiable output.</div>
     </div>
 
@@ -358,7 +354,9 @@
 
     <h3>The Attacker</h3>
 
-    <p>The Attacker read source along that path and traced the full exploit chain. The RSA private key used to sign JWTs was hardcoded. Anyone could extract it, sign a token with an arbitrary victim's user ID, and call the endpoint as that user &mdash; four HTTP requests, in sequence.</p>
+    <p>The Attacker read source along that path and traced the full exploit chain. Here's what it found: the RSA private key used to sign JWTs was hardcoded in the source &mdash; committed to the repository, accessible to anyone who could read the code.</p>
+
+    <p>That single fact unlocks the entire attack. If you have the signing key, you can forge a JWT with any user's ID. The wallet endpoint downstream trusts the token without checking whether the authenticated user actually owns the wallet being accessed. So the exploit is: extract the key, sign a token claiming to be the victim, call the wallet endpoint. Four HTTP requests total. No race conditions, no timing tricks, no brute force &mdash; just a straight path from a leaked secret to unauthorized access.</p>
 
     <h3>The Verifier</h3>
 
@@ -377,9 +375,15 @@
 
     <h2>What this doesn't replace</h2>
 
-    <p>Static analysis still catches what it catches &mdash; and should. Manual review matters for design flaws: if your threat model is wrong, no amount of tracing will surface that. Dynamic tracing only sees what your tests exercise. Better test coverage gives you better security coverage.</p>
+    <p>Static analysis still catches what it catches &mdash; and should. Run Semgrep on every PR. Let CodeQL flag your dependency issues. Those tools are fast, cheap, and good at the pattern-match problems they're built for. What we're describing here is for the class of vulnerabilities they can't reach &mdash; the ones that live in the interaction between components.</p>
 
-    <p>The underlying idea is simple: don't ask an AI to guess what might be vulnerable. Give it facts about what actually executes, attach formal meaning, and ask it to verify whether specific properties hold.</p>
+    <p>Manual review still matters for design flaws. If your threat model is wrong &mdash; if you're trusting a header you shouldn't, or storing secrets where they don't belong &mdash; no amount of tracing will surface that. Tracing tells you the system behaves as built. It can't tell you it was built wrong.</p>
+
+    <p>And coverage is bounded by your tests. Dynamic tracing only sees what executes. If no test exercises the vulnerable path, it won't appear in the graph. That's a limitation and a practical incentive &mdash; better test coverage gives you better security coverage, which was already true before any of this.</p>
+
+    <hr>
+
+    <p>The underlying idea is simple: don't ask an AI to guess what might be vulnerable. Give it facts about what actually executes, attach formal meaning, and ask it to verify whether specific properties hold. Structure the problem so the agent's job is reasoning over evidence &mdash; not generating hypotheses from thin air.</p>
 
     <p>The gap between an agent that scans code and one that finds real vulnerabilities isn't about intelligence. It's about the quality of the questions you give it to work with.</p>
 
