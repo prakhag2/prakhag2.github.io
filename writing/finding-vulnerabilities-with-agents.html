@@ -277,28 +277,44 @@
 
     <h2>Giving the graph formal security meaning</h2>
 
-    <p>A raw call tree tells you what ran &mdash; not what any of it means from a security standpoint. Classification is done through an ontology: a structured vocabulary that classifies every function by what it does.</p>
+    <p>So now you have a call tree &mdash; a record of every function that fired during a test. But a call tree alone just tells you what ran. It doesn't tell you what any of it <em>means</em> from a security standpoint. A function called <code>authorize()</code> and a function called <code>formatDate()</code> look identical in the tree: just nodes with inputs and outputs.</p>
+
+    <p>To turn this into something you can reason about, you need to label each node with its security role. That's where an <strong>ontology</strong> comes in &mdash; a structured vocabulary that classifies every function by what it actually does in the context of an attack.</p>
+
+    <p>The intuition is simple. Every vulnerability is a story with three characters:</p>
 
     <ul>
-      <li><code>TaintSource</code> &mdash; Origin of attacker-controlled data (HTTP body, headers, query params)</li>
-      <li><code>Validator</code> &mdash; Checks preconditions &mdash; raises or returns error on failure</li>
-      <li><code>CryptoOp</code> &mdash; Performs a cryptographic operation (hashing, signing, verifying)</li>
-      <li><code>SessionWriter</code> &mdash; Writes to session storage or authentication state</li>
-      <li><code>DBWriter</code> &mdash; Executes a write against a database</li>
-      <li><code>InputReader</code> &mdash; Reads from a user-controlled source</li>
+      <li>A <strong>source</strong> &mdash; where attacker-controlled data enters the system. The HTTP request body, a query parameter, a cookie value. Anything the user sends that the application reads.</li>
+      <li>A <strong>sink</strong> &mdash; where something sensitive happens. A database write, a session being created, a file being served, money being transferred. The places where damage occurs if bad data reaches them unchecked.</li>
+      <li>The <strong>path between them</strong> &mdash; and critically, whether anything on that path validates, sanitizes, or blocks the data before it reaches the sink.</li>
     </ul>
 
-    <p>The vocabulary isn't fixed &mdash; it's a design choice. A financial services app might add <code>FundsTransfer</code> and <code>BalanceWriter</code>. A healthcare system might add <code>PHIReader</code> and <code>AuditLogger</code>.</p>
+    <p><strong>Taint</strong> is the word for data that originates from a source. Once data is tainted, it stays tainted as it flows through function calls &mdash; unless something explicitly cleans it (a validator, a sanitizer, a cryptographic check). A vulnerability exists when tainted data reaches a sink with nothing in between that stops it.</p>
 
-    <p>The ontology can be implemented using OWL (Web Ontology Language) via libraries like Owlready2. Consider this trace entry:</p>
+    <p>The ontology gives you the vocabulary to label each node in the call tree:</p>
+
+    <ul>
+      <li><code>TaintSource</code> &mdash; where attacker data enters (HTTP body, headers, query params)</li>
+      <li><code>Validator</code> &mdash; checks preconditions, raises or returns error on failure</li>
+      <li><code>CryptoOp</code> &mdash; performs a cryptographic operation (hashing, signing, verifying)</li>
+      <li><code>SessionWriter</code> &mdash; writes to session storage or authentication state (a sink)</li>
+      <li><code>DBWriter</code> &mdash; executes a write against a database (a sink)</li>
+      <li><code>InputReader</code> &mdash; reads from a user-controlled source</li>
+    </ul>
+
+    <p>With these labels, the question "is this code vulnerable?" becomes a graph traversal: <em>is there a path from any <code>TaintSource</code> to any sink (<code>SessionWriter</code>, <code>DBWriter</code>) where no <code>Validator</code> or <code>CryptoOp</code> appears in between?</em> That's not a judgment call. It's a query with a yes-or-no answer.</p>
+
+    <p>The vocabulary isn't fixed &mdash; it's a design choice. A financial services app might add <code>FundsTransfer</code> and <code>BalanceWriter</code>. A healthcare system might add <code>PHIReader</code> and <code>AuditLogger</code>. You extend the ontology to match what "damage" means in your domain.</p>
+
+    <p>Classification happens automatically based on observed behavior. The ontology can be implemented using OWL (Web Ontology Language) via libraries like Owlready2. Consider this trace entry:</p>
 
 <pre><code>insecurity.authorize()
   input: { email: "user@example.com", ... }
   output: &lt;JWT token&gt;</code></pre>
 
-    <p>The reasoner sees input from <code>req.body</code> &mdash; therefore <code>TaintSource</code>. Output is a signed token &mdash; therefore <code>CryptoOp</code>. New functions doing the same thing get classified identically, automatically.</p>
+    <p>The reasoner sees input originating from <code>req.body</code> &mdash; therefore <code>TaintSource</code>. Output is a signed token &mdash; therefore <code>CryptoOp</code>. You don't hardcode function names. New functions doing the same thing get classified identically, automatically.</p>
 
-    <p>Once annotated, security questions become graph queries with deterministic answers.</p>
+    <p>Once every node is labeled, security questions stop being open-ended and become graph queries with deterministic answers.</p>
 
     <h2>Three agents, one loop</h2>
 
