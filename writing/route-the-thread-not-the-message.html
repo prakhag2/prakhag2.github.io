@@ -254,64 +254,51 @@
     <h1 class="title">Cut LLM costs by routing the thread, not the message</h1>
     <div class="meta-row">June 2026 | LLM Systems</div>
 
-    <p class="lead">Run your chatbot on one big model and you are paying premium rates to answer "what's the capital of France." Run it on one small model and the genuinely hard questions come back wrong. Neither is the deal you want.</p>
+    <p class="lead">Run your chatbot on one big model and you pay premium rates to answer "what's the capital of France." Run it on one small model and the genuinely hard questions come back wrong. The way out is to send each message to a model that fits it. In a long, winding conversation, that turns out to be harder than it sounds.</p>
 
-    <p>The obvious fix is to stop sending every message to the same model. Send the easy ones somewhere cheap and fast, and save the expensive model for the questions that actually need it. On paper this is simple. In a real back-and-forth conversation it is not, and the reason it breaks is worth walking through.</p>
+    <p>The idea is simple enough. Different questions suit different models. A quick factual question can go to a small, cheap model. A coding question is better off with a stronger one. Route each message to the right place and you stop overpaying for the easy stuff while still getting the hard stuff right.</p>
 
-    <h2>What "the right model" actually means</h2>
+    <p>What mostly decides the right model is the <strong>topic</strong>. Some models are better at code; others are cheaper and perfectly fine for everyday questions. Difficulty matters too, and I will come back to it, but topic does most of the work, so that is where we will start.</p>
 
-    <p>Two things decide which model a message needs, and they pull in different directions.</p>
+    <h2>The problem shows up over a long chat</h2>
 
-    <p>The first is <strong>topic</strong>. A cooking question and a coding question are best served by different models even when they are equally easy, because some models are simply stronger at code while others are cheaper and perfectly good at everyday questions.</p>
+    <p>Routing one standalone message is easy. The trouble is that real conversations are full of messages that mean nothing on their own.</p>
 
-    <p>The second is <strong>difficulty</strong>. Take two questions on the same topic:</p>
+    <p>Read these the way the system first sees them, with no context:</p>
 
     <ul class="convo">
-      <li><span class="said">"What's the time difference between London and Tokyo?"</span><span class="note">easy</span></li>
-      <li><span class="said">"Plan me a two-week Japan trip across five cities, day by day, balancing budget and travel time."</span><span class="note">hard</span></li>
+      <li><span class="said">"yes, go ahead"</span></li>
+      <li><span class="said">"why?"</span></li>
+      <li><span class="said">"the second one"</span></li>
     </ul>
 
-    <p>Both are travel. One is a lookup a tiny model nails instantly; the other needs real reasoning and is worth a bigger model. So difficulty matters on its own, separate from topic.</p>
+    <p>What are they about? You cannot tell. "The second one" could be choosing a restaurant or choosing between two ways to lay out a spreadsheet. A short reply borrows its meaning entirely from whatever it is following. To route it, you first have to know what it continues.</p>
 
-    <p>Here is the convenient part: topic carries most of the difficulty signal for free. Coding threads skew hard, casual everyday threads skew easy, and you can bake that straight into how you map topics to models, pointing the coding bucket at your strong model and the general bucket at your cheap one. That is the lever this post leans on. A separate difficulty score is a clean add-on with the same shape, but you can capture most of the savings by routing well on topic alone.</p>
-
-    <p>So the goal is concrete: for each turn, work out what it is about and roughly how hard it is, then send it to the cheapest model that will still get it right.</p>
-
-    <h2>Where it breaks: difficulty in a real conversation</h2>
-
-    <p>Judging a single, standalone message is easy. The problem is that real conversations are full of messages that mean nothing on their own.</p>
-
-    <p>Read these the way the router first sees them, with no context: <em>"yes, go ahead."</em> <em>"why?"</em> <em>"the second one."</em></p>
-
-    <p>What are they about? How hard are they? You cannot tell. "Why?" might be small talk about the weather, or it might be asking you to explain a tricky proof. "The second one" could be choosing a restaurant or choosing between two ways to structure a spreadsheet. A follow-up inherits its topic and its difficulty entirely from whatever it is following.</p>
-
-    <p>This is exactly where per-message routing falls over. The classifier sees "why?", has nothing to go on, and guesses. Guess cheap and a hard turn gets a weak answer. Guess expensive and you are back to paying premium rates for filler.</p>
-
-    <p>The instinct is to just feed the classifier the whole conversation so it has context. But conversations are not about one thing at a time, and that is the deeper problem. People jump around. A normal session looks like this:</p>
+    <p>The obvious patch is to just hand the model the whole conversation so it has context. But that runs into a second problem: people do not stay on one subject. They jump around. A normal session looks like this:</p>
 
     <ul class="convo">
       <li><span class="said">"Help me plan a two-week trip to Japan."</span><span class="note">trip</span></li>
       <li><span class="said">"My code keeps crashing and I can't figure out why."</span><span class="note">bug</span></li>
       <li><span class="said">"Back to Japan, how many days in Tokyo?"</span><span class="note">trip</span></li>
-      <li><span class="said">"What can I make for dinner with chicken and rice?"</span><span class="note">recipe</span></li>
+      <li><span class="said">"What can I make for dinner with chicken and rice?"</span><span class="note">dinner</span></li>
       <li><span class="said">"Okay, why is it still crashing?"</span><span class="note">bug</span></li>
     </ul>
 
-    <p>Hand the classifier that whole transcript and ask it to judge "why is it still crashing?" and you have buried the one coding turn that matters under a pile of travel and dinner talk. The extra context is not just expensive to process. It actively points at the wrong answer.</p>
+    <p>Now look at that last message, "why is it still crashing?" To answer it well, the model needs the earlier coding turns and nothing else. The trip and the dinner are just noise around it. Dump the entire transcript into the prompt and you have buried the one part that matters under a pile of unrelated chatter. That extra text is not only expensive to process. It pulls the answer off course.</p>
 
-    <blockquote>The hard part of routing a conversation is not classifying a message. It is figuring out which earlier messages the current one continues.</blockquote>
+    <blockquote>The hard part of a long conversation is not understanding one message. It is knowing which earlier messages it belongs with.</blockquote>
 
-    <h2>Think in threads, not one transcript</h2>
+    <h2>Think in threads, not one long transcript</h2>
 
-    <p>The fix is to stop treating a conversation as one ever-growing list of messages. Treat it the way Slack treats a busy channel: as several threads sharing a timeline. A message belongs to a thread, and a thread is a single line of intent, the trip, the bug, the dinner, each with its own running state.</p>
+    <p>The fix is to stop treating a conversation as one ever-growing list of messages. Treat it the way Slack treats a busy channel: as several threads sharing a timeline. Each thread is one line of intent, the trip, the bug, the dinner, and a message belongs to a thread, not to whatever was said most recently.</p>
 
-    <p>Once you have that, both problems dissolve at the same time. Routing gets easy, because a thread has a stable topic and difficulty, so you classify the thread when it starts rather than the bare follow-up "why?". And context gets easy, because each thread carries only its own history, so the model answering about the bug sees the bug and nothing else.</p>
+    <p>Once you see it that way, the two problems solve themselves together. Routing gets easy, because a thread has one steady topic, so you decide its model once instead of guessing at every "why?". And context gets easy, because each thread carries only its own history, so the model answering about the bug sees the bug and nothing else.</p>
 
-    <p>So the whole system comes down to one question asked on every turn: which thread does this message belong to? Get that right and the model choice and the context both follow from it.</p>
+    <p>So the whole thing comes down to one question on every turn: which thread does this message belong to? Get that right and the model and the context both follow.</p>
 
     <h2>A conversation in motion</h2>
 
-    <p>Here is the same user interleaving two threads, then coming back to the first one much later.</p>
+    <p>Here is the same user moving between two threads, then coming back to the first one much later.</p>
 
     <table class="routing">
       <tr><th>#</th><th>Message</th><th>Decision</th><th>Thread</th><th>Model</th></tr>
@@ -323,89 +310,88 @@
       <tr><td>41</td><td>"What's a realistic daily budget for the trip?"</td><td>resume <code>t0</code></td><td><code>t0</code></td><td>Qwen3-32B</td></tr>
     </table>
 
-    <p>Turn 2 lands on the travel thread even though the message right before it was about code. Turn 3, a casual-sounding "okay, why is it still crashing?", lands on the coding thread and goes to the strong model, which is exactly right: on its own the sentence looks trivial, but as the continuation of a debugging thread it is not. Turn 41 finds the travel thread again forty turns later, with nobody having typed "anyway, back to Japan." Every one of these is decided from content alone. That recovery, after long gaps and with no announced cues, is the part worth getting right.</p>
+    <p>Turn 2 lands on the travel thread even though the message right before it was about code. Turn 3 lands back on the coding thread. And turn 41 finds the travel thread again forty turns later, with nobody having typed "anyway, back to Japan." Every one of these is decided from the words alone. That last one, finding the right thread after a long gap with no announcement, is the part worth getting right.</p>
 
     <h2>Deciding the thread: resume or new</h2>
 
-    <p>There is no "current thread" and no rule about recency. On every turn, one small and cheap model is asked to place the message against all the open threads. It is shown exactly three things.</p>
+    <p>There is no "current thread" and no rule about which was most recent. On every turn, one small, cheap model is asked to place the message against all the open threads. It is shown three things.</p>
 
     <ul>
-      <li><strong>Each open thread as a short summary.</strong> Its objective, plus a running <em>scope</em>: an accumulating list of every sub-topic that thread has touched. The model does not get each thread's full message history. It gets the scope, which is the thread's compact, matchable identity.</li>
-      <li><strong>The last few full turns of the whole chat.</strong> Both the question and the reply, the last three by default. These are there only to resolve references like "yes," "the second one," or "and how much would that cost?" They are conversation-wide, not per-thread.</li>
-      <li><strong>The new message itself.</strong> Just the question.</li>
+      <li><strong>Each open thread, as a short summary.</strong> Its goal, plus a running <em>scope</em>: a growing list of everything that thread has touched. The model does not get each thread's full history. It gets this summary, which is enough to recognize the thread.</li>
+      <li><strong>The last few full turns of the chat.</strong> Both the question and the reply, the last three by default. These are only there to make sense of short replies like "yes" or "the second one."</li>
+      <li><strong>The new message.</strong> Just the question.</li>
     </ul>
 
-    <p>It answers with one of two things:</p>
+    <p>It answers with one of two things: resume an existing thread, or open a new one.</p>
 
 <pre><code>{"thread": "t0"}                              resume an existing thread
 {"thread": "NEW", "objective": "plan trip"}   open a new one</code></pre>
 
-    <p>Then there is a guardrail that matters more than it looks. A returned id counts as a resume only if it is actually an open thread. A literal "NEW", a malformed reply, an invented id that does not exist, an outright error from the model: all of them fall through to opening a new thread. The failure mode is biased on purpose. The model can never attach your message to the wrong thread by hallucinating an id; the worst it can do is start a fresh thread, which the next turn can quietly correct.</p>
+    <p>There is one guardrail that matters more than it looks. A reply only counts as "resume" if it names a thread that actually exists. Anything else, a made-up id, a garbled reply, an error, simply opens a new thread. This is on purpose: the model can never misfile your message into the wrong thread by inventing one. The worst it can do is start a fresh thread, which the next turn quietly fixes.</p>
 
-    <p>Inside that structure the model is told to prefer resuming, and the rules it follows are the whole game.</p>
+    <p>Inside that, the model is told to prefer resuming, and a few plain rules do most of the work.</p>
 
     <ul>
-      <li><strong>Attach if the message fits a thread's objective or any sub-topic in its scope.</strong> A trip thread already covers transport, lodging, food, budget, and etiquette, so a budget question is part of it, not a new thread.</li>
-      <li><strong>A return after a gap belongs to the thread it returns to.</strong> Scan all open threads, old ones included. Do not open a new thread just because the match is old or its scope has grown long. This is what makes turn 41 work.</li>
-      <li><strong>Subject beats recency.</strong> The most recently touched thread gets no special treatment. Turn 2 resumes the travel thread even though the coding turn sat immediately before it.</li>
-      <li><strong>Watch for look-alikes.</strong> "Fix my crashing script," "explain how neural networks learn," and "set up a website" all sound techy and share words, yet they are three different threads with three different goals. Match on the specific objective, not the shared vocabulary. This is the rule that stops everything collapsing into one giant "tech" thread.</li>
-      <li><strong>But a concept and its implementation are one goal.</strong> "How does a recommendation system work?" then "show me the code" then "how do I handle new users?" is a single thread, not three.</li>
+      <li><strong>Attach if the message fits a thread's goal or anything it has already covered.</strong> A trip thread already includes transport, lodging, food, and budget, so a budget question belongs to it, not to a new thread.</li>
+      <li><strong>A return after a gap belongs to the thread it returns to.</strong> Look at all open threads, including old ones. Do not start a new thread just because the match is old. This is what makes turn 41 work.</li>
+      <li><strong>Subject beats recency.</strong> The most recent thread gets no special treatment. Turn 2 goes back to the trip even though the coding message came right before it.</li>
+      <li><strong>Watch for look-alikes.</strong> "Fix my crashing app," "explain how neural networks learn," and "set up a website" all sound techy, but they are three different goals. Match on what the person actually wants, not on shared buzzwords.</li>
     </ul>
 
-    <p>Notice what is not here: there is no merge step. Two threads are never fused into one. "Resume" just means attaching to a thread that already exists. Because the decision is made fresh every turn, there is no state to get stuck in. A single misplaced turn does not corrupt anything, and the next turn is judged from scratch.</p>
+    <p>Worth saying clearly: there is no "merge" step. Two threads are never combined. "Resume" just means attaching to a thread that already exists. And because the decision is made fresh every turn, nothing gets stuck. One misplaced message does not snowball, because the next message is judged on its own.</p>
 
-    <h2>The model is chosen once, then inherited</h2>
+    <h2>The model is picked once, then kept</h2>
 
-    <p>When, and only when, a new thread is born, a second cheap classifier reads its objective and assigns a topic bucket: <code>tech_coding</code>, <code>travel_planning</code>, or a catch-all <code>general_knowledge</code>. That bucket maps to the model that answers the thread, and the mapping is where the cost decision lives.</p>
+    <p>When a new thread is created, a quick classifier reads its goal and files it under a topic: coding, travel, or a catch-all "general." That topic decides the model.</p>
 
     <table class="routing">
-      <tr><th>Topic bucket</th><th>Answering model</th><th>Why</th></tr>
-      <tr><td><code>tech_coding</code></td><td>Claude Sonnet 4</td><td>skews hard, worth the strong model</td></tr>
-      <tr><td><code>travel_planning</code></td><td>Qwen3-32B</td><td>capable and mid-cost</td></tr>
-      <tr><td><code>general_knowledge</code> (default)</td><td>Nova Lite</td><td>mostly easy, cheapest</td></tr>
+      <tr><th>Topic</th><th>Model</th><th>Why</th></tr>
+      <tr><td>coding</td><td>Claude Sonnet 4</td><td>usually hard, worth the strong model</td></tr>
+      <tr><td>travel</td><td>Qwen3-32B</td><td>capable and mid-priced</td></tr>
+      <tr><td>general (default)</td><td>Nova Lite</td><td>mostly easy, cheapest</td></tr>
     </table>
 
-    <p>The classification happens once, at thread creation. Every later turn that resumes the thread inherits its bucket and is never re-classified. That is deliberate. If you re-ran the classifier per message, a terse follow-up like "and the second one?" could get mislabeled and bounce the same thread between models mid-conversation, which is both wrong and jarring to the user. Pinning the model to the thread instead of the message keeps routing stable. Turns 0, 2, and 41 all answer from the same travel model without anyone re-deciding.</p>
+    <p>This happens once, when the thread starts. Every later message in that thread keeps the same model. That matters: if you re-decided on every message, a short follow-up like "and the second one?" could get misread and bounce the thread to a different model mid-conversation, which feels jarring. Tying the model to the thread keeps it steady. Turns 0, 2, and 41 all go to the same travel model without anyone re-deciding.</p>
 
-    <p>This is also where the difficulty prior from earlier shows up in practice. The buckets are not just topics; they are topics chosen to line up with how hard their questions tend to be, so routing on topic gets you most of the way to routing on cost. If you later want an explicit difficulty score, it slots in the same way: decide it once per thread, and let it nudge the model choice alongside the topic.</p>
+    <p>This is also where difficulty quietly comes in. Notice the topics line up with how hard their questions tend to be: coding skews hard, general skews easy. So routing by topic already routes by difficulty most of the time. If you ever want a separate "how hard is this" signal, it slots in the same way, decided once per thread. But for most chatbots, topic alone gets you most of the savings.</p>
 
-    <p>And one thing worth stating plainly: the matching, the bucket classification, and the summarizing all run on the cheapest model in the lineup. You only spend the strong model on the one thing the user actually reads, which is the answer.</p>
+    <p>One more thing: the behind-the-scenes steps, matching, classifying, summarizing, all run on the cheapest model. You only spend the strong model on the one thing the user actually reads, the answer.</p>
 
     <h2>Sending only the right context</h2>
 
-    <p>Picking the right model is half the cost. The other half is what you put in its prompt.</p>
+    <p>Picking the right model is half the savings. The other half is what you put in the prompt.</p>
 
-    <p>The lazy default is to send the model the entire conversation on every turn. In a long chat that is the biggest single line on your bill, because you pay for those input tokens again and again, every turn, and most of them have nothing to do with the question being asked. It also makes the answer worse, for the reason we already saw: the model has to dig the relevant thread out of a wall of unrelated text.</p>
+    <p>The lazy default is to resend the entire conversation on every turn. In a long chat that is the biggest line on your bill, because you pay for all those words again and again, every single turn, and most of them have nothing to do with the current question. It also makes the answer worse, since the model has to fish the relevant part out of a wall of unrelated text.</p>
 
-    <p>Threading fixes this directly. Once the thread is chosen, the answer is built from that thread's history and nothing else. When turn 2 is answered, the travel model receives only the turns belonging to <code>t0</code>, plus that thread's accumulated scope:</p>
+    <p>Threads fix this directly. Once the thread is chosen, the answer is built from that thread's history alone. When turn 2 is answered, the travel model receives only the trip turns, plus a short summary of what the thread has covered:</p>
 
-<pre><code>system:    You are a helpful assistant handling a travel_planning request.
-           Context so far in this thread: &lt;t0's accumulated scope&gt;
-user:      Help me plan a two-week trip to Japan.      # t0, turn 0
+<pre><code>system:    You are a helpful travel assistant.
+           So far in this thread: &lt;short summary of the trip discussion&gt;
+user:      Help me plan a two-week trip to Japan.      (turn 0)
 assistant: &lt;the trip reply&gt;
-user:      How many days in Tokyo vs Kyoto?            # the current turn</code></pre>
+user:      How many days in Tokyo vs Kyoto?            (the current turn)</code></pre>
 
-    <p>The coding turn from <code>t1</code> is simply not in the prompt. It is not summarized, truncated, or down-weighted. It is absent, because it belongs to a different thread. When turn 3 resumes the coding thread, that model sees the crashing-code turns and never hears about Japan. Each model gets a clean, on-topic, far smaller context window. That is what makes the answers better and the prompts cheaper at the same time, which is the rare case where the quality win and the cost win are the same move.</p>
+    <p>The coding message is simply not in there. It is not trimmed or shrunk, it is absent, because it belongs to a different thread. When turn 3 picks up the coding thread, that model sees the crashing-code turns and never hears about Japan. Each model gets a clean, on-topic, much smaller prompt. The answer gets better and the prompt gets cheaper at the same time, which is the rare case where the quality win and the cost win are the same move.</p>
 
-    <h3>Why the scope keeps everything</h3>
+    <h3>Why the summary keeps everything</h3>
 
-    <p>After every answer, a summarizer folds the new question and reply into the thread's scope, and it is told never to drop earlier items. The scope grows into a complete, compact inventory of what the thread has covered, something like "Japan trip: two weeks, Tokyo vs Kyoto split, rail pass, daily budget."</p>
+    <p>After each answer, the thread's running summary is updated with the new exchange, and it is told never to drop older items. Over time it becomes a short but complete record of what the thread has covered: "Japan trip: two weeks, Tokyo and Kyoto, rail pass, daily budget."</p>
 
-    <p>This is the quiet workhorse of the whole design. The scope is exactly what the matcher compares new messages against, so a rich, complete scope is what lets turn 41 find its way home. A rolling summary that drifted toward the latest sub-topic would slowly forget the trip's early details, and the budget question forty turns later would look like a stranger. Keep everything instead of overwriting, and old parts of a thread stay matchable for as long as the conversation lives.</p>
+    <p>This is the quiet workhorse of the whole design. That summary is exactly what the system compares new messages against, so keeping it complete is what lets turn 41 find its way home. If the summary instead drifted toward only the latest sub-topic, it would slowly forget the early trip details, and the budget question forty turns later would look like a stranger. Keep everything, and old parts of a thread stay findable for as long as the conversation lasts.</p>
 
     <h2>What this does not solve</h2>
 
-    <p>The thread decision is itself a model call, so it is neither free nor perfect. A wrong attach sends a turn to a slightly-off context or a non-ideal model. That is a quality blip, not an outage, and the next turn can correct it. The design leans on that self-correction rather than pretending the classifier is always right.</p>
+    <p>The thread decision is itself a model call, so it is neither free nor perfect. A wrong guess sends a message to a slightly-off context or a non-ideal model. That is a small quality dip, not an outage, and the next turn can correct it. The design counts on that rather than pretending the classifier is always right.</p>
 
-    <p>It is also not a throughput trick. Routing easy turns to cheaper models lowers your average cost per answer and frees the strong model for the turns that need it, but it does not raise the ceiling on how much your models can serve. It makes spending efficient. It does not conjure capacity.</p>
+    <p>It is also not a way to handle more traffic. Sending easy questions to cheaper models lowers your average cost per answer, but it does not raise how much your models can serve overall. It makes spending efficient. It does not create capacity.</p>
 
-    <p>And the buckets are yours to write. The topics, their descriptions, and which model each one points at are a config file, not a law of nature. Get them wrong and you will route good threads to the wrong model. The mechanism is general; the judgment about your own product is not.</p>
+    <p>And the topics are yours to define. Which topics exist, how they are described, and which model each one uses are all settings, not fixed rules. Get them wrong and you will send good threads to the wrong model. The approach is general; the choices for your own product are not.</p>
 
     <hr>
 
-    <p>The shift is small to state and changes the whole bill. Stop treating a conversation as one transcript bound to one model. Treat it as a set of threads, each with its own topic, its own model, and its own private context. Then every turn is just one cheap question, which thread does this belong to, and the right model and the right context both fall out of the answer.</p>
+    <p>The shift is small to describe and changes the whole bill. Stop treating a conversation as one long transcript tied to one model. Treat it as a set of threads, each with its own topic, its own model, and its own private history. Then every turn is just one cheap question, which thread is this, and the right model and the right context both fall out of the answer.</p>
 
-    <p><em>The full implementation, the matcher, the accumulating scope, the topic routing, and the streaming server behind it, lives in the <a href="https://github.com/prakhag2/intelligent-model-router">intelligent-model-router</a> repository.</em></p>
+    <p><em>The full implementation, the thread matcher, the running summary, the topic routing, and the streaming server behind it, lives in the <a href="https://github.com/prakhag2/intelligent-model-router">intelligent-model-router</a> repository.</em></p>
 
   </div>
 </main>
