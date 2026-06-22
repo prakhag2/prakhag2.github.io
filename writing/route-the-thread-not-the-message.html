@@ -225,6 +225,20 @@
   }
   table.routing tr:first-child th { border-top: 1px solid var(--rule); }
 
+  .figure { margin: 32px 0; }
+  .figure img {
+    max-width: 100%;
+    border-radius: 6px;
+    border: 1px solid var(--rule);
+    display: block;
+  }
+  .figure .caption {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 10px;
+    font-style: italic;
+  }
+
   @media (max-width: 720px) {
     body { font-size: 17px; }
     .page, .site-header-inner { padding: 0 20px; }
@@ -298,7 +312,12 @@
 
     <h2>A conversation in motion</h2>
 
-    <p>Here is the same user moving between two threads, then coming back to the first one much later.</p>
+    <p>Here is the same user moving between two threads, then coming back to the first one much later. This is the live app: watch the right-hand panel as each message is sorted into a thread and routed to its model, and at the end each thread is opened to show it holds only its own turns.</p>
+
+    <div class="figure">
+      <img src="../assets/img/thread-routing-demo.gif" alt="The router in action: a user interleaves a Japan trip and a code-debugging question. Each message is sorted into its own thread on the right, the trip routed to a travel model and the bug to a coding model. Expanding each thread shows it holds only its own turns.">
+      <div class="caption">One conversation, two interleaved threads. Each is routed to its own model, and each keeps its own separate history.</div>
+    </div>
 
     <table class="routing">
       <tr><th>#</th><th>Message</th><th>Decision</th><th>Thread</th><th>Model</th></tr>
